@@ -3,6 +3,8 @@
 
 # Object files
 *.o
+!font.o
+*.iso
 *.ko
 *.obj
 *.elf
@@ -11,6 +13,10 @@
 *.ilk
 *.map
 *.exp
+
+#kernel
+*.bin
+
 
 # Precompiled Headers
 *.gch
