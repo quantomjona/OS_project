@@ -1,0 +1,104 @@
+/* Declare constants for the multiboot header. */
+.set ALIGN,    1<<0             /* align loaded modules on page boundaries */
+.set MEMINFO,  1<<1             /* provide memory map */
+.set FLAGS,    1|2|4 /* this is the Multiboot 'flag' field */
+.set MAGIC,    0x1BADB002       /* 'magic number' lets bootloader find the header */
+.set CHECKSUM, -(MAGIC + FLAGS) /* checksum of above, to prove we are multiboot */
+/* 
+Declare a multiboot header that marks the program as a kernel. These are magic
+values that are documented in the multiboot standard. The bootloader will
+search for this signature in the first 8 KiB of the kernel file, aligned at a
+32-bit boundary. The signature is in its own section so the header can be
+forced to be within the first 8 KiB of the kernel file.
+*/
+
+.section  .multiboot
+mb_header:
+	.align 4
+	.long MAGIC
+	.long FLAGS
+	.long CHECKSUM
+	.long mb_header
+	.long _start
+	.long _edata
+	.long _kernel_end
+	.long _start
+	.long 0
+	.long 1024
+	.long 768
+	.long 32 
+/*
+The multiboot standard does not define the value of the stack pointer register
+(esp) and it is up to the kernel to provide a stack. This allocates room for a
+small stack by creating a symbol at the bottom of it, then allocating 16384
+bytes for it, and finally creating a symbol at the top. The stack grows
+downwards on x86. The stack is in its own section so it can be marked nobits,
+which means the kernel file is smaller because it does not contain an
+uninitialized stack. The stack on x86 must be 16-byte aligned according to the
+System V ABI standard and de-facto extensions. The compiler will assume the
+stack is properly aligned and failure to align the stack will result in
+undefined behavior.
+*/
+.section .bss
+.align 16
+stack_bottom:
+.skip 16384 * 8 # 16 KiB
+stack_top:
+
+
+
+/*
+The linker script specifies _start as the entry point to the kernel and the
+bootloader will jump to this position once the kernel has been loaded. It
+doesn't make sense to return from this function as the bootloader is gone.
+*/
+.section .boot
+.global _start
+_start:
+	movl $(initial_page_dir - 0xC0000000),%ecx
+    movl %ecx,%cr3
+
+    movl %cr4,%ecx
+    orl $0x10,%ecx
+    movl %ecx,%cr4
+
+    movl %cr0,%ecx
+    orl $0x80000000,%ecx
+    movl %ecx,%cr0
+
+	lea 2f, %ecx
+	jmp *%ecx
+.section .text
+2:
+    mov $stack_top,%esp
+    push %ebx
+    push %eax
+    xor %ebp, %ebp
+    .extern kernel_main
+    call kernel_main
+1:
+    hlt
+    jmp 1b
+
+
+
+/*
+Set the size of the _start symbol to the current location '.' minus its start.
+This is useful when debugging or when you implement call tracing.
+*/
+
+.section .data
+.align 4096
+.global initial_page_dir
+initial_page_dir:
+	.long 0b10000011
+	
+	.fill 768-1, 4, 0
+
+	.long (0<<22) |0b10000011
+    .long (1<<22) | 0b10000011
+	.long (2<<22) | 0b10000011
+    .long (3<<22) | 0b10000011
+	.fill 256-4, 4, 0
+_edata:
+

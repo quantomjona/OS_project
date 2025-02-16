@@ -1,22 +1,21 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include "../boot/multiboot.h"
 #include "../gdt/gdt.h"
+#include "framebuffer.h"
+#include "memory.h"
+#include "../stl/printf.h"
 /*  Some screen stuff. */
 /*  The number of columns. */
 
 /*  The attribute of an character. */
-#define ATTRIBUTE               7
+#define ATTRIBUTE 7
 /*  The video memory address. */
-#define VIDEO                   0xB8000
-#define CHECK_FLAG(flags,bit)   ((flags) & (1 << (bit)))
-/*  Variables. */
-/*  Save the X position. */
+#define CHECK_FLAG(flags, bit) ((flags) & (1 << (bit)))
 
-
-
-
+// page_directory[i] = 
 /* Check if the compiler thinks you are targeting the wrong operating system. */
 #if defined(__linux__)
 #error "You are not using a cross-compiler, you will most certainly run into trouble"
@@ -26,187 +25,86 @@
 #if !defined(__i386__)
 #error "This tutorial needs to be compiled with a ix86-elf compiler"
 #endif
+#include "../debugging/qemu.h"
+
+static inline void flush_tlb() {
+    uint32_t cr3;
+    __asm__ volatile("mov %%cr3, %0" : "=r"(cr3));
+    __asm__ volatile("mov %0, %%cr3" :: "r"(cr3));
+}
+
+extern uint32_t initial_page_dir[1024];
+static char * itoa( uint64_t value, char * str, int base )
+{
+    char * rc;
+    char * ptr;
+    char * low;
+    // Check for supported base.
+    if ( base < 2 || base > 36 )
+    {
+        *str = '\0';
+        return str;
+    }
+    rc = ptr = str;
+    // Set '-' for negative decimals.
+    if ( value < 0 && base == 10 )
+    {
+        *ptr++ = '-';
+    }
+    // Remember where the numbers start.
+    low = ptr;
+    // The actual conversion.
+    do
+    {
+        // Modulo is negative for negative value. This trick makes abs() unnecessary.
+        *ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz"[35 + value % base];
+        value /= base;
+    } while ( value );
+    // Terminating the string.
+    *ptr-- = '\0';
+    // Invert the numbers.
+    while ( low < ptr )
+    {
+        char tmp = *low;
+        *low++ = *ptr;
+        *ptr-- = tmp;
+    }
+    return rc;
+}
 
 /*  Format a string and print it on the screen, just like the libc
    function printf. */
-void printf (const char *format, ...)
+
+
+
+void kernel_main(uint32_t magic,multiboot_info_t * mbi)
 {
-  char **arg = (char **) &format;
-  int c;
-  char buf[20];
-
-  arg++;
   
-  while ((c = *format++) != 0)
-    {
-      if (c != '%')
-        putchar (c);
-      else
-        {
-          char *p, *p2;
-          int pad0 = 0, pad = 0;
-          
-          c = *format++;
-          if (c == '0')
-            {
-              pad0 = 1;
-              c = *format++;
-            }
-
-          if (c >= '0' && c <= '9')
-            {
-              pad = c - '0';
-              c = *format++;
-            }
-
-          switch (c)
-            {
-            case 'd':
-            case 'u':
-            case 'x':
-              itoa (buf, c, *((int *) arg++));
-              p = buf;
-              goto string;
-              break;
-
-            case 's':
-              p = *arg++;
-              if (! p)
-                p = "(null)";
-
-            string:
-              for (p2 = p; *p2; p2++);
-              for (; p2 < p + pad; p2++)
-                putchar (pad0 ? '0' : ' ');
-              while (*p)
-                putchar (*p++);
-              break;
-
-            default:
-              putchar (*((int *) arg++));
-              break;
-            }
-        }
-    }
-}
-
-
-void kernel_main(unsigned long magic, unsigned long addr){
 
   /*  Clear the screen. */
- multiboot_info_t *mbi;
-  
-  /* Clear the screen. */
+  initGdt();
 
+  uint32_t mod1 = *(uint32_t * )(mbi->mods_addr + 4);
+  uint32_t physicalAllocStart = (mod1 + 0xFFF) & ~0xFFF;
+  initMemory(mbi->mem_upper * 1024,physicalAllocStart);
+  kmallocInit(0x1000);
 
-  /* Am I booted by a Multiboot-compliant boot loader? */
-  if (magic != MULTIBOOT_BOOTLOADER_MAGIC)
-    {
-      return;
+//   char * ch = (char *)0x5000;
+//   itoa(mbi->framebuffer_addr,ch,10);
+//   QemuConsolePrintStr(ch);
+// //   QemuConsolePrintChar('\n');
+//     for(uint64_t i = 0;i<mbi->framebuffer_width * mbi->framebuffer_height*mbi->framebuffer_bpp * 8 * 2;i+=32768){
+//     memMapPage(0x7A000 + i ,mbi->framebuffer_addr + i,2|1);
+//   }
+    for(uint64_t i = 0;i<mbi->framebuffer_height * mbi->framebuffer_pitch;i+=4000000){
+        memMapPage(0x7A000 + i ,mbi->framebuffer_addr + i,2|1|0x80);
     }
 
-  /* Set MBI to the address of the Multiboot information structure. */
-  mbi = (multiboot_info_t *) addr;
-
-  /* Print out the flags. */
-
-  /* Are mem_* valid? */
+  
 
 
-  /* Is boot_device valid? */
+    init(mbi);
 
-  /* Are mods_* valid? */
-//   if (CHECK_FLAG (mbi->flags, 3))
-//     {
-//       multiboot_module_t *mod;
-//       int i;
-      
-
-//       for (i = 0, mod = (multiboot_module_t *) mbi->mods_addr;
-//            i < mbi->mods_count;
-//            i++, mod++)
-//         printf (" mod_start = 0x%x, mod_end = 0x%x, cmdline = %s\n",
-//                 (unsigned) mod->mod_start,
-//                 (unsigned) mod->mod_end,
-//                 (char *) mod->cmdline);
-//     }
-
-  /* Bits 4 and 5 are mutually exclusive! */
-//   if (CHECK_FLAG (mbi->flags, 4) && CHECK_FLAG (mbi->flags, 5))
-//     {
-//       printf ("Both bits 4 and 5 are set.\n");
-//       return;
-//     }
-
-//   /* Is the symbol table of a.out valid? */
-//   if (CHECK_FLAG (mbi->flags, 4))
-//     {
-//       multiboot_aout_symbol_table_t *multiboot_aout_sym = &(mbi->u.aout_sym);
-      
-//       printf ("multiboot_aout_symbol_table: tabsize = 0x%0x, "
-//               "strsize = 0x%x, addr = 0x%x\n",
-//               (unsigned) multiboot_aout_sym->tabsize,
-//               (unsigned) multiboot_aout_sym->strsize,
-//               (unsigned) multiboot_aout_sym->addr);
-//     }
-
-  /* Is the section header table of ELF valid? */
-//   if (CHECK_FLAG (mbi->flags, 5))
-//     {
-//       multiboot_elf_section_header_table_t *multiboot_elf_sec = &(mbi->u.elf_sec);
-
-//       printf ("multiboot_elf_sec: num = %u, size = 0x%x,"
-//               " addr = 0x%x, shndx = 0x%x\n",
-//               (unsigned) multiboot_elf_sec->num, (unsigned) multiboot_elf_sec->size,
-//               (unsigned) multiboot_elf_sec->addr, (unsigned) multiboot_elf_sec->shndx);
-//     }
-
-//   /* Are mmap_* valid? */
-//   if (CHECK_FLAG (mbi->flags, 6))
-//     {
-//       multiboot_memory_map_t *mmap;
-      
-//       printf ("mmap_addr = 0x%x, mmap_length = 0x%x\n",
-//               (unsigned) mbi->mmap_addr, (unsigned) mbi->mmap_length);
-//       for (mmap = (multiboot_memory_map_t *) mbi->mmap_addr;
-//            (unsigned long) mmap < mbi->mmap_addr + mbi->mmap_length;
-//            mmap = (multiboot_memory_map_t *) ((unsigned long) mmap
-//                                     + mmap->size + sizeof (mmap->size)))
-//         printf (" size = 0x%x, base_addr = 0x%x%08x,"
-//                 " length = 0x%x%08x, type = 0x%x\n",
-//                 (unsigned) mmap->size,
-//                 (unsigned) (mmap->addr >> 32),
-//                 (unsigned) (mmap->addr & 0xffffffff),
-//                 (unsigned) (mmap->len >> 32),
-//                 (unsigned) (mmap->len & 0xffffffff),
-//                 (unsigned) mmap->type);
-//     }
-
-  /* Draw diagonal blue line. */
-  if (CHECK_FLAG (mbi->flags, 12))
-	{
-		multiboot_uint32_t color;
-		unsigned i;
-		fb =(char *) ((void *) (unsigned long) mbi->framebuffer_addr);
-		
-		pixelwidth=mbi->framebuffer_bpp/8;
-		screen_width = mbi->framebuffer_width;
-		screen_height = mbi->framebuffer_height;
-		pitch = mbi->framebuffer_pitch;
-	}
-	drawchar('a',0,0);
-	// for(int i = 0;i<255;i++){
-	// 	drawchar(i,(i*9)%screen_width  , (i*9/screen_width)*16);
-	// }
-	// for(int i=0;i<255;i++){
-
-	// 	putpixel(i,i,0xff);
-	// }
-
-
-
-
-
-
+  
 
 }

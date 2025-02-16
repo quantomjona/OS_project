@@ -18,3 +18,8 @@ flushTss:
     mov ax,0x2B
     ltr ax
     ret
+section .text
+global flush_tlb
+flush_tlb:
+    mov ecx,cr3
+	mov cr3,ecx

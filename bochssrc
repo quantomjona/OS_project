@@ -1,0 +1,8 @@
+romimage: file=/home/yonatan/Downloads/bochs-2.8/bios/BIOS-bochs-latest
+vgaromimage: file= /home/yonatan/Downloads/bochs-2.8/bios/VGABIOS-lgpl-latest
+ata0-slave: type=cdrom, path=myos.iso, status=inserted
+boot:cdrom
+display_library: x, options = "gui_debug"
+port_e9_hack: enabled=1
+log: bochs.log
+debugger_log: -

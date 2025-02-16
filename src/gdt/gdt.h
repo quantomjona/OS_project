@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "../stl/string.h"
 struct gdt_entry_struct{
     uint16_t limit;
     uint16_t base_low;
@@ -46,12 +47,7 @@ struct tss_entry{
 	uint16_t trap;
 	uint16_t iomap_base;
 }__attribute__((packed));
-static inline void memset(void * dest , char value, uint32_t count){
-    char * curr = (char *)(dest);
-    for(int i = 0; i<count;i++){
-        *(curr + i) = value;
-    }
-}
+
 void initGdt();
 void writeTss (uint32_t location , uint32_t ss0, uint32_t esp0);
 void setGdtGate(uint32_t num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran);
