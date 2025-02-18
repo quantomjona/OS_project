@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "../stl/printf.h"
-#include "../kernel/memory.h"
+#include "../mm/memory.h"
 extern uint32_t initial_page_dir[1024];
 
 static inline void outportw(uint16_t port, uint16_t val)

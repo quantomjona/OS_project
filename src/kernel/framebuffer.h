@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include "memory.h"
+#include "../mm/memory.h"
 #include "../boot/multiboot.h"
 #include "../debugging/qemu.h"
 static uint8_t pixelwidth;

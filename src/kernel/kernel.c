@@ -5,7 +5,7 @@
 #include "../boot/multiboot.h"
 #include "../gdt/gdt.h"
 #include "framebuffer.h"
-#include "memory.h"
+#include "../mm/memory.h"
 #include "../stl/printf.h"
 /*  Some screen stuff. */
 /*  The number of columns. */
@@ -96,14 +96,14 @@ void kernel_main(uint32_t magic,multiboot_info_t * mbi)
 //     for(uint64_t i = 0;i<mbi->framebuffer_width * mbi->framebuffer_height*mbi->framebuffer_bpp * 8 * 2;i+=32768){
 //     memMapPage(0x7A000 + i ,mbi->framebuffer_addr + i,2|1);
 //   }
-    for(uint64_t i = 0;i<mbi->framebuffer_height * mbi->framebuffer_pitch;i+=4000000){
-        memMapPage(0x7A000 + i ,mbi->framebuffer_addr + i,2|1|0x80);
+    for(uint64_t i = 0;i<mbi->framebuffer_height * mbi->framebuffer_pitch;i+=4096){
+        memMapPage(0xCA7000 + i ,mbi->framebuffer_addr + i,2|1);
     }
 
   
 
 
-    init(mbi);
+    // init(mbi);
 
   
 
